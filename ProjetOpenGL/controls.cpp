@@ -16,12 +16,10 @@ float initialFoV = 45.0f;
 float speed = 3.0f; // 3 units / second
 float mouseSpeed = 0.005f;
 
-float lastTime = 0.0f;
-
-
-
 void computeMatricesFromInputs(GLFWwindow* window)
 {
+	static double lastTime = glfwGetTime();
+
 	//compute deltaTime
 	float currentTime = glfwGetTime();
 
@@ -40,8 +38,8 @@ void computeMatricesFromInputs(GLFWwindow* window)
 	glfwSetCursorPos(window, width / 2, height / 2);
 
 	//compute new orientation
-	horizontalAngle += mouseSpeed * deltaTime * float(width / 2 - xpos);
-	verticalAngle += mouseSpeed * deltaTime * float(height / 2 - ypos);
+	horizontalAngle += mouseSpeed * float(width / 2 - xpos);
+	verticalAngle += mouseSpeed * float(height / 2 - ypos);
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	glm::vec3 direction(
@@ -81,11 +79,11 @@ void computeMatricesFromInputs(GLFWwindow* window)
 
 	//glm::mat4 Projection = glm::ortho(-(float)width * multiplier, (float)width * multiplier, (float)height * multiplier, -(float)height * multiplier, -1.f, 10.f);
 	// Projection matrix : 45&deg; Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-	
+
 	float multiplier = 0.01f;
 	//ProjectionMatrix = glm::ortho(-(float)width * multiplier, (float)width * multiplier, -(float)height * multiplier, (float)height * multiplier, -1.f, 10.f);
-	ProjectionMatrix = glm::perspective(glm::radians(FoV), float(width) / float(height), 0.1f, 100.0f);
-	
+	ProjectionMatrix = glm::perspective(FoV, float(width) / float(height), 0.1f, 100.0f);
+
 	// Camera matrix
 	ViewMatrix = glm::lookAt(
 		position,           // Camera is here

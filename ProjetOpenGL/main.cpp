@@ -20,10 +20,13 @@ using namespace glm;
 #include <random>
 
 #include "controls.hpp"
+#include "light.h"
 
 std::random_device rd;
 std::mt19937 e2(rd());
 std::uniform_real_distribution<> dist(0.0f, 1.0f);
+
+GLFWwindow* window;
 
 int main(void)
 {
@@ -42,7 +45,6 @@ int main(void)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window;
 	int width = 1024;
 	int height = 768;
 
@@ -67,9 +69,14 @@ int main(void)
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	// Hide the mouse and enable unlimited mouvement
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	// Dark blue background
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+
+	// Set the mouse at the center of the screen
+	glfwSetCursorPos(window, width / 2, height / 2);
 
 	//Creating VAO
 	GLuint VertexArrayID;
@@ -83,6 +90,8 @@ int main(void)
 	// Get a handle for our "MVP" uniform
 		// Only during the initialisation
 	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
+	GLuint MID = glGetUniformLocation(programID, "M");
+	GLuint VID = glGetUniformLocation(programID, "V");
 
 #pragma region cube
 
@@ -227,6 +236,7 @@ int main(void)
 	// One color for each vertex. They were generated randomly.
 	static GLfloat g_color_buffer_dataTriangle[nColorTriangle];
 
+
 	for (int i = 0; i < std::size(g_color_buffer_dataTriangle); i += 3)
 	{
 		float randomColorR = dist(e2);
@@ -237,6 +247,7 @@ int main(void)
 		g_color_buffer_dataTriangle[i + 1] = randomColorG;
 		g_color_buffer_dataTriangle[i + 2] = randomColorB;
 	}
+
 
 	GLuint vertexBufferTriangle;
 	glGenBuffers(1, &vertexBufferTriangle);
@@ -255,8 +266,8 @@ int main(void)
 	// Read our .obj file
 	std::vector< glm::vec3 > verticesMonkey;
 	std::vector< glm::vec2 > uvsMonkey;
-	std::vector< glm::vec3 > normals; // Won't be used at the moment.
-	bool res = loadOBJ("monkey.obj", verticesMonkey, uvsMonkey, normals);
+	std::vector< glm::vec3 > normalsMonkey; 
+	bool res = loadOBJ("monkey.obj", verticesMonkey, uvsMonkey, normalsMonkey);
 
 	GLuint vertexBufferMonkey;
 	glGenBuffers(1, &vertexBufferMonkey);
@@ -267,7 +278,22 @@ int main(void)
 	glGenBuffers(1, &uvBufferMonkey);
 	glBindBuffer(GL_ARRAY_BUFFER, uvBufferMonkey);
 	glBufferData(GL_ARRAY_BUFFER, uvsMonkey.size() * sizeof(glm::vec2), &uvsMonkey[0], GL_STATIC_DRAW);
+
+	GLuint normalBufferMonkey;
+	glGenBuffers(1, &normalBufferMonkey);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBufferMonkey);
+	glBufferData(GL_ARRAY_BUFFER, normalsMonkey.size() * sizeof(glm::vec3), &normalsMonkey[0], GL_STATIC_DRAW);
+
+
 #pragma endregion
+
+	//Create Light
+	Light firstLight(glm::vec3(10, 5, 0), glm::vec3(0.8, 0.2, 0.1), 1000.0f);
+
+	//Get handle for Lights uniforms
+	GLuint LPosID = glGetUniformLocation(programID, "LightPosition_worldspace");
+	GLuint LColorID = glGetUniformLocation(programID, "uLightColor");
+	GLuint LPowerID = glGetUniformLocation(programID, "uLightPower");
 
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
@@ -295,6 +321,14 @@ int main(void)
 		// Send our transformation to the currently bound shader, in the "MVP" uniform
 		// This is done in the main loop since each model will have a different MVP matrix (At least for the M part)
 		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &mvp[0][0]);
+		glUniformMatrix4fv(MID, 1, GL_FALSE, &Model[0][0]);
+		glUniformMatrix4fv(VID, 1, GL_FALSE, &View[0][0]);
+
+		//Send ligth properties
+		glUniform3f(LPosID, firstLight.GetPosition().x, firstLight.GetPosition().y, firstLight.GetPosition().z);
+		glUniform3f(LColorID, firstLight.GetColor().x, firstLight.GetColor().y, firstLight.GetColor().z);
+		glUniform1f(LPowerID, firstLight.GetPower());
+
 
 		// Bind our texture in Texture Unit 0
 		glActiveTexture(GL_TEXTURE0);
@@ -339,7 +373,7 @@ int main(void)
 		);
 
 		//Draw the triangle
-		glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
+		//glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
@@ -370,7 +404,7 @@ int main(void)
 		);
 
 		//Draw the triangle
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		//glDrawArrays(GL_TRIANGLES, 0, 3);
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 #pragma endregion
@@ -387,11 +421,11 @@ int main(void)
 			(void*)0            // array buffer offset
 		);
 
-		// 2nd attribute buffer : colors
+		// 2nd attribute buffer : uv
 		glEnableVertexAttribArray(2);
 		glBindBuffer(GL_ARRAY_BUFFER, uvBufferMonkey);
 		glVertexAttribPointer(
-			2,                                // attribute. No particular reason for 1, but must match the layout in the shader.
+			2,                                // attribute.
 			2,                                // size
 			GL_FLOAT,                         // type
 			GL_FALSE,                         // normalized?
@@ -399,11 +433,26 @@ int main(void)
 			(void*)0                          // array buffer offset
 		);
 
+		// 3rd attribute buffer : normals
+		glEnableVertexAttribArray(3);
+		glBindBuffer(GL_ARRAY_BUFFER, normalBufferMonkey);
+		glVertexAttribPointer(
+			3,                                // attribute
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+
+
 		//Draw the triangle
 		glDrawArrays(GL_TRIANGLES, 0, sizeof(glm::vec3)* verticesMonkey.size());
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(3);
 #pragma endregion
 
 		// Swap buffers

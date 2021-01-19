@@ -48,6 +48,9 @@
     <ClCompile Include="common\vboindexer.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="light.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -82,6 +85,9 @@
     </ClInclude>
     <ClInclude Include="common\vboindexer.hpp">
       <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="light.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
