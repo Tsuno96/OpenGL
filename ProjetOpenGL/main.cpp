@@ -14,6 +14,7 @@ using namespace glm;
 
 #include "common/shader.hpp"
 #include "common/texture.hpp"
+#include "common/objloader.hpp"
 
 #include <iostream>
 #include <random>
@@ -249,6 +250,25 @@ int main(void)
 
 #pragma endregion
 
+#pragma region Singe
+	
+	// Read our .obj file
+	std::vector< glm::vec3 > verticesMonkey;
+	std::vector< glm::vec2 > uvsMonkey;
+	std::vector< glm::vec3 > normals; // Won't be used at the moment.
+	bool res = loadOBJ("monkey.obj", verticesMonkey, uvsMonkey, normals);
+
+	GLuint vertexBufferMonkey;
+	glGenBuffers(1, &vertexBufferMonkey);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferMonkey);
+	glBufferData(GL_ARRAY_BUFFER, verticesMonkey.size() * sizeof(glm::vec3), &verticesMonkey[0], GL_STATIC_DRAW);
+
+	GLuint uvBufferMonkey;
+	glGenBuffers(1, &uvBufferMonkey);
+	glBindBuffer(GL_ARRAY_BUFFER, uvBufferMonkey);
+	glBufferData(GL_ARRAY_BUFFER, uvsMonkey.size() * sizeof(glm::vec2), &uvsMonkey[0], GL_STATIC_DRAW);
+#pragma endregion
+
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	// Accept fragment if it closer to the camera than the former one
@@ -281,7 +301,7 @@ int main(void)
 		glBindTexture(GL_TEXTURE_2D, Texture);
 		// Set our "myTextureSampler" sampler to user Texture Unit 0
 		glUniform1i(TextureID, 0);
-
+#pragma region DrawCube
 		// 1rst attribute buffer : vertices
 		glEnableVertexAttribArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -321,7 +341,10 @@ int main(void)
 		//Draw the triangle
 		glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
 		glDisableVertexAttribArray(0);
-
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
+#pragma endregion
+#pragma region DrawTriangle
 		// 1rst attribute buffer : vertices
 		glEnableVertexAttribArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBufferTriangle);
@@ -349,6 +372,39 @@ int main(void)
 		//Draw the triangle
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+#pragma endregion
+#pragma region DrawMonkey
+		// 1rst attribute buffer : vertices
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, vertexBufferMonkey);
+		glVertexAttribPointer(
+			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+			3,                  // size
+			GL_FLOAT,           // type
+			GL_FALSE,           // normalized?
+			0,                  // stride
+			(void*)0            // array buffer offset
+		);
+
+		// 2nd attribute buffer : colors
+		glEnableVertexAttribArray(2);
+		glBindBuffer(GL_ARRAY_BUFFER, uvBufferMonkey);
+		glVertexAttribPointer(
+			2,                                // attribute. No particular reason for 1, but must match the layout in the shader.
+			2,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+		//Draw the triangle
+		glDrawArrays(GL_TRIANGLES, 0, sizeof(glm::vec3)* verticesMonkey.size());
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
+#pragma endregion
 
 		// Swap buffers
 		glfwSwapBuffers(window);

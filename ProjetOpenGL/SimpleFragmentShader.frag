@@ -8,6 +8,6 @@ out vec3 color;
 uniform sampler2D myTextureSampler;
 
 void main(){
-  color = texture( myTextureSampler, UV ).rgb *0.8 + fragmentColor*0.2;
+  color = texture( myTextureSampler, UV ).rgb *0.5 +fragmentColor*0.5;
 
 }
