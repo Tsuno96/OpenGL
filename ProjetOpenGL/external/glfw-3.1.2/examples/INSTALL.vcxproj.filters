@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\LYON 2\M2\TempsReelM2\tutorial-bin-vc10-64\CMakeFiles\c6f07bc0c92a3094a215537bd7d3cf50\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{DA1828D1-FAE7-3861-8D23-BB67FC4259A4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
