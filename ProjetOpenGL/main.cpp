@@ -17,6 +17,7 @@ using namespace std;
 #include "common/texture.hpp"
 #include "common/objloader.hpp"
 #include "common/vboindexer.hpp"
+#include "common/tangentspace.hpp"
 
 #include <iostream>
 #include <random>
@@ -88,19 +89,18 @@ int main(void)
 	// Create  and compile our GLSL program from the shaders
 	GLuint programID = LoadShaders("SimpleVertexShader.vert", "SimpleFragmentShader.frag");
 
-	//CUBE
 	// Get a handle for our "MVP" uniform
 		// Only during the initialisation
 	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
-	GLuint MID = glGetUniformLocation(programID, "M");
-	GLuint VID = glGetUniformLocation(programID, "V");
+	GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
+	GLuint ViewMatrixID = glGetUniformLocation(programID, "V");
 
+	// Load texture
+	GLuint Texture = loadBMP_custom("uvtemplate.bmp");
+	GLuint NormalTexture = loadBMP_custom("normal.bmp");
 #pragma region cube
 
-	//Implement texture
-	GLuint Texture = loadBMP_custom("uvtemplate.bmp");
-	// Get a handle for our "myTextureSampler" uniform
-	GLuint TextureID = glGetUniformLocation(programID, "myTextureSampler");
+
 
 	// A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
 	static const GLfloat g_vertex_buffer_data[] = {
@@ -263,21 +263,30 @@ int main(void)
 
 #pragma endregion
 
-#pragma region Singe
+#pragma region monkey
 	
 	// Read our .obj file
 	std::vector< glm::vec3 > inVerticesMonkey;
 	std::vector< glm::vec2 > inUvsMonkey;
 	std::vector< glm::vec3 > inNormalsMonkey; 
 	bool res = loadOBJ("monkey.obj", inVerticesMonkey, inUvsMonkey, inNormalsMonkey);
-	
+
+	vector< glm::vec3 > inTangentsMonkey;
+	vector< glm::vec3 > inBitangentsMonkey;
+	computeTangentBasis(inVerticesMonkey, inUvsMonkey, inNormalsMonkey,
+		inTangentsMonkey, inBitangentsMonkey);
+
 	// Create VBO
 	vector<unsigned short> indicesMonkey;
 	vector< glm::vec3 > verticesMonkey;
 	vector< glm::vec2 > uvsMonkey;
 	vector< glm::vec3 > normalsMonkey;
-	indexVBO(inVerticesMonkey, inUvsMonkey, inNormalsMonkey,
-		indicesMonkey, verticesMonkey, uvsMonkey, normalsMonkey);
+	vector< glm::vec3 > tangentsMonkey;
+	vector< glm::vec3 > bitangentsMonkey;
+	indexVBO_TBN(inVerticesMonkey, inUvsMonkey, inNormalsMonkey, inTangentsMonkey, inBitangentsMonkey,
+		indicesMonkey, verticesMonkey, uvsMonkey, normalsMonkey, tangentsMonkey, bitangentsMonkey);
+
+
 
 	std::cout << "Nombre de inVerticesMonkey : " << size(inVerticesMonkey)<<std::endl;
 	std::cout << "Nombre de verticesMonkey : " << size(verticesMonkey) << std::endl;
@@ -316,6 +325,18 @@ int main(void)
 	glBindBuffer(GL_ARRAY_BUFFER, colorBufferMonkey);
 	glBufferData(GL_ARRAY_BUFFER, colorsMonkey.size() * sizeof(glm::vec3), &colorsMonkey[0], GL_STATIC_DRAW);
 
+	GLuint tangentbufferMonkey;
+	glGenBuffers(1, &tangentbufferMonkey);
+	glBindBuffer(GL_ARRAY_BUFFER, tangentbufferMonkey);
+	glBufferData(GL_ARRAY_BUFFER, tangentsMonkey.size() * sizeof(glm::vec3), &tangentsMonkey[0], GL_STATIC_DRAW);
+
+	GLuint bitangentbufferMonkey;
+	glGenBuffers(1, &bitangentbufferMonkey);
+	glBindBuffer(GL_ARRAY_BUFFER, bitangentbufferMonkey);
+	glBufferData(GL_ARRAY_BUFFER, bitangentsMonkey.size() * sizeof(glm::vec3), &bitangentsMonkey[0], GL_STATIC_DRAW);
+
+
+
 #pragma endregion
 
 	//Create Light
@@ -328,6 +349,12 @@ int main(void)
 
 	//Uniform Opacity
 	GLuint OpacityID = glGetUniformLocation(programID, "opacity");
+
+	// Get a handle for our Texture uniform
+	GLuint TextureID = glGetUniformLocation(programID, "myTextureSampler");
+	GLuint NormalTextureID = glGetUniformLocation(programID, "NormalTextureSampler");
+
+	GLuint ModelView3x3MatrixID = glGetUniformLocation(programID, "MV3x3");
 
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
@@ -351,19 +378,22 @@ int main(void)
 		//Compute the MVP matrix from keyboard inputs
 		computeMatricesFromInputs(window);
 		// Projection matrix
-		glm::mat4 Projection = getProjectionMatrix();
+		glm::mat4 ProjectionMatrix = getProjectionMatrix();
 		// Camera matrix
-		glm::mat4 View = getViewMatrix();
+		glm::mat4 ViewMatrix = getViewMatrix();
 		// Model matrix : an identity matrix (model will be at the origin)
-		glm::mat4 Model = glm::mat4(1.0f);
+		glm::mat4 ModelMatrix = glm::mat4(1.0f);
+		glm::mat4 ModelViewMatrix = ModelMatrix * ViewMatrix;
+		// Take the upper-left part of ModelViewMatrix
+		glm::mat3 ModelView3x3Matrix = glm::mat3(ModelViewMatrix);
 		// Our ModelViewProjection : multiplication of our 3 matrices
-		glm::mat4 mvp = Projection * View * Model; // Remember, matrix multiplication is the other way around
+		glm::mat4 mvp = ProjectionMatrix * ViewMatrix * ModelMatrix; // Remember, matrix multiplication is the other way around
 
 		// Send our transformation to the currently bound shader, in the "MVP" uniform
-		// This is done in the main loop since each model will have a different MVP matrix (At least for the M part)
 		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &mvp[0][0]);
-		glUniformMatrix4fv(MID, 1, GL_FALSE, &Model[0][0]);
-		glUniformMatrix4fv(VID, 1, GL_FALSE, &View[0][0]);
+		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
+		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+		glUniformMatrix3fv(ModelView3x3MatrixID, 1, GL_FALSE, &ModelView3x3Matrix[0][0]);
 
 		//Send ligth properties
 		glUniform3f(LPosID, firstLight.GetPosition().x, firstLight.GetPosition().y, firstLight.GetPosition().z);
@@ -379,6 +409,12 @@ int main(void)
 		glBindTexture(GL_TEXTURE_2D, Texture);
 		// Set our "myTextureSampler" sampler to user Texture Unit 0
 		glUniform1i(TextureID, 0);
+
+		// Bind our normal texture in Texture Unit 1
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, NormalTexture);
+		// Set our "Normal    TextureSampler" sampler to user Texture Unit 0
+		glUniform1i(NormalTextureID, 1);
 #pragma region DrawCube
 		// 1rst attribute buffer : vertices
 		glEnableVertexAttribArray(0);
@@ -494,6 +530,30 @@ int main(void)
 		glBindBuffer(GL_ARRAY_BUFFER, colorBufferMonkey);
 		glVertexAttribPointer(
 			1,                                // attribute.
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+		// 5th attribute buffer : tangents
+		glEnableVertexAttribArray(4);
+		glBindBuffer(GL_ARRAY_BUFFER, tangentbufferMonkey);
+		glVertexAttribPointer(
+			4,                                // attribute
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+		// 6th attribute buffer : bitangents
+		glEnableVertexAttribArray(5);
+		glBindBuffer(GL_ARRAY_BUFFER, bitangentbufferMonkey);
+		glVertexAttribPointer(
+			5,                                // attribute
 			3,                                // size
 			GL_FLOAT,                         // type
 			GL_FALSE,                         // normalized?

@@ -3,14 +3,19 @@
 in vec2 UV;
 in vec3 fragmentColor;
 in vec3 normal;
+in vec3 Position_worldspace;
+
 in vec3 Normal_cameraspace;
 in vec3 LightDirection_cameraspace;
-in vec3 Position_worldspace;;
 in vec3 EyeDirection_cameraspace;;
+
+in vec3 LightDirection_tangentspace;
+in vec3 EyeDirection_tangentspace;
 
 out vec4 color;
 
 uniform sampler2D myTextureSampler;
+uniform sampler2D NormalTextureSampler;
 uniform vec3 uLightColor;
 uniform float uLightPower;
 uniform vec3 LightPosition_worldspace;
@@ -19,11 +24,13 @@ uniform float opacity;
 
 void main(){
 	
+    // Local normal, in tangent space
+    vec3 TextureNormal_tangentspace = normalize(texture( NormalTextureSampler, UV ).rgb*2.0 - 1.0);
 	// DIFFUSE
 	// Direction of the light (from the fragment to the light)
-	vec3 l = normalize( LightDirection_cameraspace );
+	vec3 l = normalize( LightDirection_tangentspace );
 	// Normal of the computed fragment, in camera space
-	vec3 n = normalize( Normal_cameraspace );
+	vec3 n = normalize( TextureNormal_tangentspace );
 
 	// Cosine of the angle between the normal and the light direction,
 	// clamped above 0
