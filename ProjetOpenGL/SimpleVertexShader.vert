@@ -9,14 +9,15 @@ out vec2 UV;
 out vec3 fragmentColor;
 out vec3 normal;
 out vec3 Position_worldspace;
-out vec3 EyeDirection_cameraspace;
 out vec3 LightDirection_cameraspace;
 out vec3 Normal_cameraspace;
+out vec3 EyeDirection_cameraspace;
 
 uniform mat4 MVP;
 uniform mat4 M;
 uniform mat4 V;
 uniform vec3 LightPosition_worldspace;
+
 
 void main(){
 

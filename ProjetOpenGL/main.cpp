@@ -15,6 +15,7 @@ using namespace glm;
 #include "common/shader.hpp"
 #include "common/texture.hpp"
 #include "common/objloader.hpp"
+#include "common/vboindexer.hpp"
 
 #include <iostream>
 #include <random>
@@ -264,10 +265,26 @@ int main(void)
 #pragma region Singe
 	
 	// Read our .obj file
+	std::vector< glm::vec3 > inVerticesMonkey;
+	std::vector< glm::vec2 > inUvsMonkey;
+	std::vector< glm::vec3 > inNormalsMonkey; 
+	bool res = loadOBJ("monkey.obj", inVerticesMonkey, inUvsMonkey, inNormalsMonkey);
+	
+	// Create VBO
+	std::vector<unsigned short> indicesMonkey;
 	std::vector< glm::vec3 > verticesMonkey;
 	std::vector< glm::vec2 > uvsMonkey;
-	std::vector< glm::vec3 > normalsMonkey; 
-	bool res = loadOBJ("monkey.obj", verticesMonkey, uvsMonkey, normalsMonkey);
+	std::vector< glm::vec3 > normalsMonkey;
+	indexVBO(inVerticesMonkey, inUvsMonkey, inNormalsMonkey,
+		indicesMonkey, verticesMonkey, uvsMonkey, normalsMonkey);
+
+	std::cout << "Nombre de inVerticesMonkey : " << size(inVerticesMonkey)<<std::endl;
+	std::cout << "Nombre de verticesMonkey : " << size(verticesMonkey) << std::endl;
+
+	GLuint elementbufferMonkey;
+	glGenBuffers(1, &elementbufferMonkey);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbufferMonkey);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesMonkey.size() * sizeof(unsigned short), &indicesMonkey[0], GL_STATIC_DRAW);
 
 	GLuint vertexBufferMonkey;
 	glGenBuffers(1, &vertexBufferMonkey);
@@ -295,11 +312,18 @@ int main(void)
 	GLuint LColorID = glGetUniformLocation(programID, "uLightColor");
 	GLuint LPowerID = glGetUniformLocation(programID, "uLightPower");
 
+	//Uniform Opacity
+	GLuint OpacityID = glGetUniformLocation(programID, "opacity");
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	// Accept fragment if it closer to the camera than the former one
 	glDepthFunc(GL_LESS);
+	// Removal of back sides 
+	glDisable(GL_CULL_FACE);
 
+	// Enable transparencies
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	do {
 		//Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -329,6 +353,9 @@ int main(void)
 		glUniform3f(LColorID, firstLight.GetColor().x, firstLight.GetColor().y, firstLight.GetColor().z);
 		glUniform1f(LPowerID, firstLight.GetPower());
 
+		//Send opacity value
+		float opacity = .3f;
+		glUniform1f(OpacityID,opacity);
 
 		// Bind our texture in Texture Unit 0
 		glActiveTexture(GL_TEXTURE0);
@@ -445,10 +472,17 @@ int main(void)
 			(void*)0                          // array buffer offset
 		);
 
+		// Index buffer
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbufferMonkey);
 
+		//Draw the triangles
+		glDrawElements(
+			GL_TRIANGLES,         // mode
+			indicesMonkey.size(), // count
+			GL_UNSIGNED_SHORT,    // type
+			(void*)0              // element array buffer offset
+		);
 
-		//Draw the triangle
-		glDrawArrays(GL_TRIANGLES, 0, sizeof(glm::vec3)* verticesMonkey.size());
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
