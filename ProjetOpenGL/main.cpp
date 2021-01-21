@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 using namespace glm;
+using namespace std;
 
 #include "common/shader.hpp"
 #include "common/texture.hpp"
@@ -271,15 +272,24 @@ int main(void)
 	bool res = loadOBJ("monkey.obj", inVerticesMonkey, inUvsMonkey, inNormalsMonkey);
 	
 	// Create VBO
-	std::vector<unsigned short> indicesMonkey;
-	std::vector< glm::vec3 > verticesMonkey;
-	std::vector< glm::vec2 > uvsMonkey;
-	std::vector< glm::vec3 > normalsMonkey;
+	vector<unsigned short> indicesMonkey;
+	vector< glm::vec3 > verticesMonkey;
+	vector< glm::vec2 > uvsMonkey;
+	vector< glm::vec3 > normalsMonkey;
 	indexVBO(inVerticesMonkey, inUvsMonkey, inNormalsMonkey,
 		indicesMonkey, verticesMonkey, uvsMonkey, normalsMonkey);
 
 	std::cout << "Nombre de inVerticesMonkey : " << size(inVerticesMonkey)<<std::endl;
 	std::cout << "Nombre de verticesMonkey : " << size(verticesMonkey) << std::endl;
+
+	float randomColorR = dist(e2);
+	float randomColorG = dist(e2);
+	float randomColorB = dist(e2);
+	vector<glm::vec3> colorsMonkey;
+	for (int i = 0; i < size(verticesMonkey); i++) {
+		colorsMonkey.push_back(glm::vec3(randomColorR, randomColorG, randomColorB));
+	}
+
 
 	GLuint elementbufferMonkey;
 	glGenBuffers(1, &elementbufferMonkey);
@@ -301,6 +311,10 @@ int main(void)
 	glBindBuffer(GL_ARRAY_BUFFER, normalBufferMonkey);
 	glBufferData(GL_ARRAY_BUFFER, normalsMonkey.size() * sizeof(glm::vec3), &normalsMonkey[0], GL_STATIC_DRAW);
 
+	GLuint colorBufferMonkey;
+	glGenBuffers(1, &colorBufferMonkey);
+	glBindBuffer(GL_ARRAY_BUFFER, colorBufferMonkey);
+	glBufferData(GL_ARRAY_BUFFER, colorsMonkey.size() * sizeof(glm::vec3), &colorsMonkey[0], GL_STATIC_DRAW);
 
 #pragma endregion
 
@@ -314,16 +328,19 @@ int main(void)
 
 	//Uniform Opacity
 	GLuint OpacityID = glGetUniformLocation(programID, "opacity");
+
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	// Accept fragment if it closer to the camera than the former one
 	glDepthFunc(GL_LESS);
+
 	// Removal of back sides 
 	glDisable(GL_CULL_FACE);
 
 	// Enable transparencies
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	do {
 		//Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -354,7 +371,7 @@ int main(void)
 		glUniform1f(LPowerID, firstLight.GetPower());
 
 		//Send opacity value
-		float opacity = .3f;
+		float opacity = 1.f;
 		glUniform1f(OpacityID,opacity);
 
 		// Bind our texture in Texture Unit 0
@@ -465,6 +482,18 @@ int main(void)
 		glBindBuffer(GL_ARRAY_BUFFER, normalBufferMonkey);
 		glVertexAttribPointer(
 			3,                                // attribute
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+		// 4th attribute buffer : colors
+		glEnableVertexAttribArray(1);
+		glBindBuffer(GL_ARRAY_BUFFER, colorBufferMonkey);
+		glVertexAttribPointer(
+			1,                                // attribute.
 			3,                                // size
 			GL_FLOAT,                         // type
 			GL_FALSE,                         // normalized?

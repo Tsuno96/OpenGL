@@ -32,7 +32,8 @@ void main(){
 	float cosTheta = clamp( dot( n,l ), 0,1 );
 
 	// Material properties
-	vec3 MaterialDiffuseColor =  texture( myTextureSampler, UV ).rgb;
+	//vec3 MaterialDiffuseColor =  texture( myTextureSampler, UV ).rgb;
+	vec3 MaterialDiffuseColor =  fragmentColor;
 
 	// Light properties
 	vec3 LightColor = uLightColor;
