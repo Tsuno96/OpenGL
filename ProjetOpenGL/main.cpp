@@ -250,6 +250,23 @@ int main(void)
 		g_color_buffer_dataTriangle[i + 2] = randomColorB;
 	}
 
+	std::vector<glm::vec3> normalsTriangle;
+	for(int i = 0; i<size(g_vertex_buffer_dataTriangle);i+=3)
+	{
+		glm::vec3 normal(0.0);
+		glm::vec3 currentVertex(g_vertex_buffer_dataTriangle[i],
+								g_vertex_buffer_dataTriangle[i + 1],
+								g_vertex_buffer_dataTriangle[i + 2]);
+		int nextI = (i + 3) % 9;
+		glm::vec3 nextVertex(g_vertex_buffer_dataTriangle[nextI],
+			g_vertex_buffer_dataTriangle[nextI+1],
+			g_vertex_buffer_dataTriangle[nextI+2]);
+		normal.x += (currentVertex.y - nextVertex.y) * (currentVertex.z + nextVertex.z);
+		normal.y += (currentVertex.z - nextVertex.z) * (currentVertex.x + nextVertex.x);
+		normal.z += (currentVertex.x - nextVertex.x) * (currentVertex.y + nextVertex.y);
+		normalsTriangle.push_back(normal);
+	}
+
 
 	GLuint vertexBufferTriangle;
 	glGenBuffers(1, &vertexBufferTriangle);
@@ -260,6 +277,11 @@ int main(void)
 	glGenBuffers(1, &colorBufferTriangle);
 	glBindBuffer(GL_ARRAY_BUFFER, colorBufferTriangle);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_dataTriangle), g_color_buffer_dataTriangle, GL_STATIC_DRAW);
+
+	GLuint normalBufferTriangle;
+	glGenBuffers(1, &normalBufferTriangle);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBufferTriangle);
+	glBufferData(GL_ARRAY_BUFFER, normalsTriangle.size() * sizeof(glm::vec3), &normalsTriangle[0], GL_STATIC_DRAW);
 
 #pragma endregion
 
@@ -340,7 +362,7 @@ int main(void)
 #pragma endregion
 
 	//Create Light
-	Light firstLight(glm::vec3(10, 5, 0), glm::vec3(0.8, 0.2, 0.1), 1000.0f);
+	Light firstLight(glm::vec3(-10, 0, 0), glm::vec3(0.8, 0.2, 0.1), 1000.0f);
 
 	//Get handle for Lights uniforms
 	GLuint LPosID = glGetUniformLocation(programID, "LightPosition_worldspace");
@@ -367,7 +389,7 @@ int main(void)
 	// Enable transparencies
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+	float deltaTime = 0.0f;
 	do {
 		//Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -375,8 +397,18 @@ int main(void)
 		// Use our shader
 		glUseProgram(programID);
 
+
+		//Send ligth properties
+		glUniform3f(LPosID, firstLight.GetPosition().x, firstLight.GetPosition().y, firstLight.GetPosition().z);
+		glUniform3f(LColorID, firstLight.GetColor().x, firstLight.GetColor().y, firstLight.GetColor().z);
+		glUniform1f(LPowerID, firstLight.GetPower());
+
+		//Send opacity value
+		float opacity = 1.f;
+		glUniform1f(OpacityID, opacity);
+
 		//Compute the MVP matrix from keyboard inputs
-		computeMatricesFromInputs(window);
+		deltaTime += computeMatricesFromInputs(window);
 		// Projection matrix
 		glm::mat4 ProjectionMatrix = getProjectionMatrix();
 		// Camera matrix
@@ -384,6 +416,7 @@ int main(void)
 		// Model matrix : an identity matrix (model will be at the origin)
 		glm::mat4 ModelMatrix = glm::mat4(1.0f);
 		glm::mat4 ModelViewMatrix = ModelMatrix * ViewMatrix;
+
 		// Take the upper-left part of ModelViewMatrix
 		glm::mat3 ModelView3x3Matrix = glm::mat3(ModelViewMatrix);
 		// Our ModelViewProjection : multiplication of our 3 matrices
@@ -394,15 +427,6 @@ int main(void)
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 		glUniformMatrix3fv(ModelView3x3MatrixID, 1, GL_FALSE, &ModelView3x3Matrix[0][0]);
-
-		//Send ligth properties
-		glUniform3f(LPosID, firstLight.GetPosition().x, firstLight.GetPosition().y, firstLight.GetPosition().z);
-		glUniform3f(LColorID, firstLight.GetColor().x, firstLight.GetColor().y, firstLight.GetColor().z);
-		glUniform1f(LPowerID, firstLight.GetPower());
-
-		//Send opacity value
-		float opacity = 1.f;
-		glUniform1f(OpacityID,opacity);
 
 		// Bind our texture in Texture Unit 0
 		glActiveTexture(GL_TEXTURE0);
@@ -458,36 +482,34 @@ int main(void)
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
 #pragma endregion
-#pragma region DrawTriangle
-		// 1rst attribute buffer : vertices
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexBufferTriangle);
-		glVertexAttribPointer(
-			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			(void*)0            // array buffer offset
-		);
+		//Send Monkey opacity value
+		opacity = 1.f;
+		glUniform1f(OpacityID, opacity);
+#pragma region Monkey MVP
+		//Compute the MVP matrix from keyboard inputs
+		computeMatricesFromInputs(window);
+		// Projection matrix
+		ProjectionMatrix = getProjectionMatrix();
+		// Camera matrix
+		ViewMatrix = getViewMatrix();
+		// Model matrix : an identity matrix (model will be at the origin)
+		ModelMatrix = glm::mat4(1.0f);
+		ModelMatrix = glm::rotate(ModelMatrix, float(cos(deltaTime)), glm::vec3(0.0,1,0.0));
+		ModelMatrix = glm::scale(ModelMatrix, glm::vec3(0.5));
+		ModelViewMatrix = ModelMatrix * ViewMatrix;
 
-		// 2nd attribute buffer : colors
-		glEnableVertexAttribArray(1);
-		glBindBuffer(GL_ARRAY_BUFFER, colorBufferTriangle);
-		glVertexAttribPointer(
-			1,                                // attribute. No particular reason for 1, but must match the layout in the shader.
-			3,                                // size
-			GL_FLOAT,                         // type
-			GL_FALSE,                         // normalized?
-			0,                                // stride
-			(void*)0                          // array buffer offset
-		);
+		// Take the upper-left part of ModelViewMatrix
+		ModelView3x3Matrix = glm::mat3(ModelViewMatrix);
+		// Our ModelViewProjection : multiplication of our 3 matrices
+		mvp = ProjectionMatrix * ViewMatrix * ModelMatrix; // Remember, matrix multiplication is the other way around
 
-		//Draw the triangle
-		//glDrawArrays(GL_TRIANGLES, 0, 3);
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-#pragma endregion
+		// Send our transformation to the currently bound shader, in the "MVP" uniform
+		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &mvp[0][0]);
+		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
+		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+		glUniformMatrix3fv(ModelView3x3MatrixID, 1, GL_FALSE, &ModelView3x3Matrix[0][0]);
+#pragma endregion 
+
 #pragma region DrawMonkey
 		// 1rst attribute buffer : vertices
 		glEnableVertexAttribArray(0);
@@ -575,6 +597,78 @@ int main(void)
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(3);
+		glDisableVertexAttribArray(4);
+		glDisableVertexAttribArray(5);
+#pragma endregion
+
+		//Send Triangle opacity value
+		opacity = .8f;
+		glUniform1f(OpacityID, opacity);
+#pragma region Triangle MVP
+		//Compute the MVP matrix from keyboard inputs
+		computeMatricesFromInputs(window);
+		// Projection matrix
+		ProjectionMatrix = getProjectionMatrix();
+		// Camera matrix
+		ViewMatrix = getViewMatrix();
+		// Model matrix : an identity matrix (model will be at the origin)
+		ModelMatrix = glm::mat4(1.0f);
+		ModelMatrix = glm::translate(ModelMatrix, glm::vec3(0.0f,0.0f, cos(deltaTime)));
+		ModelViewMatrix = ModelMatrix * ViewMatrix;
+
+		// Take the upper-left part of ModelViewMatrix
+		ModelView3x3Matrix = glm::mat3(ModelViewMatrix);
+		// Our ModelViewProjection : multiplication of our 3 matrices
+		mvp = ProjectionMatrix * ViewMatrix * ModelMatrix; // Remember, matrix multiplication is the other way around
+
+		// Send our transformation to the currently bound shader, in the "MVP" uniform
+		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &mvp[0][0]);
+		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
+		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+		glUniformMatrix3fv(ModelView3x3MatrixID, 1, GL_FALSE, &ModelView3x3Matrix[0][0]);
+#pragma endregion 
+#pragma region DrawTriangle
+		// 1rst attribute buffer : vertices
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, vertexBufferTriangle);
+		glVertexAttribPointer(
+			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+			3,                  // size
+			GL_FLOAT,           // type
+			GL_FALSE,           // normalized?
+			0,                  // stride
+			(void*)0            // array buffer offset
+		);
+
+		// 2nd attribute buffer : colors
+		glEnableVertexAttribArray(1);
+		glBindBuffer(GL_ARRAY_BUFFER, colorBufferTriangle);
+		glVertexAttribPointer(
+			1,                                // attribute. No particular reason for 1, but must match the layout in the shader.
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+		// 3rd attribute buffer : normals
+		glEnableVertexAttribArray(3);
+		glBindBuffer(GL_ARRAY_BUFFER, normalBufferTriangle);
+		glVertexAttribPointer(
+			3,                                // attribute
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
+		//Draw the triangle
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(3);
 #pragma endregion
 

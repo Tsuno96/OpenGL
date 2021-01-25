@@ -16,7 +16,7 @@ float initialFoV = 45.0f;
 float speed = 3.0f; // 3 units / second
 float mouseSpeed = 0.005f;
 
-void computeMatricesFromInputs(GLFWwindow* window)
+float computeMatricesFromInputs(GLFWwindow* window)
 {
 	static double lastTime = glfwGetTime();
 
@@ -92,6 +92,7 @@ void computeMatricesFromInputs(GLFWwindow* window)
 	);
 
 	lastTime = currentTime;
+	return deltaTime;
 }
 
 glm::mat4 getProjectionMatrix() {
