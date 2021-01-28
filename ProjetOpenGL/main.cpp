@@ -395,7 +395,7 @@ int main(void)
 
 
 		//Send ligth properties
-		glUniform3f(LPosID, firstLight.GetPosition().x, firstLight.GetPosition().y, firstLight.GetPosition().z);
+		glUniform3f(LPosID, firstLight.GetPosition().x + cos(deltaTime)*10, firstLight.GetPosition().y+cos(deltaTime)*10, firstLight.GetPosition().z+cos(deltaTime)*10);
 		glUniform3f(LColorID, firstLight.GetColor().x, firstLight.GetColor().y, firstLight.GetColor().z);
 		glUniform1f(LPowerID, firstLight.GetPower());
 
@@ -613,7 +613,7 @@ int main(void)
 #pragma endregion
 
 		//Send Triangle opacity value
-		opacity = .3ef;
+		opacity = .3f;
 		glUniform1f(OpacityID, opacity);
 #pragma region Triangle MVP
 		//Compute the MVP matrix from keyboard inputs
