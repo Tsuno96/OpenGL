@@ -12,6 +12,8 @@ public:
 	glm::vec3 GetPosition() { return vec3Position; }
 	glm::vec3 GetColor() { return vec3Color; }
 	float GetPower() { return fPower; }
+
+	void SetPosition(glm::vec3 pos) { vec3Position = pos; }
 };
 
 

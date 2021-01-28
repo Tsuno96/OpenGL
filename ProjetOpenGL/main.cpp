@@ -30,7 +30,7 @@ std::mt19937 e2(rd());
 std::uniform_real_distribution<> dist(0.0f, 1.0f);
 
 GLFWwindow* window;
-void computeNormals(GLfloat* vertexarray, vector<glm::vec3>& normals);
+void computeNormals(GLfloat* vertexarray, vector<glm::vec3>& normals, int lenght);
 
 int main(void)
 {
@@ -168,7 +168,7 @@ int main(void)
 
 	vector<glm::vec3>normals;
 
-	computeNormals(g_vertex_buffer_data, normals);
+	computeNormals(g_vertex_buffer_data, normals,108);
 
 	// This will identity our vertex buffer
 	GLuint vertexBuffer;
@@ -260,7 +260,7 @@ int main(void)
 
 
 	std::vector<glm::vec3> normalsTriangle;
-	computeNormals(g_vertex_buffer_dataTriangle, normalsTriangle);
+	computeNormals(g_vertex_buffer_dataTriangle, normalsTriangle, 3);
 
 
 	GLuint vertexBufferTriangle;
@@ -357,7 +357,7 @@ int main(void)
 #pragma endregion
 
 	//Create Light
-	Light firstLight(glm::vec3(-10, 0, 0), glm::vec3(0.8, 0.2, 0.1), 1000.0f);
+	Light firstLight(glm::vec3(-10, 0, 0), glm::vec3(dist(e2), dist(e2), dist(e2)), 100.0f);
 
 	//Get handle for Lights uniforms
 	GLuint LPosID = glGetUniformLocation(programID, "LightPosition_worldspace");
@@ -393,9 +393,11 @@ int main(void)
 		// Use our shader
 		glUseProgram(programID);
 
+		int r = 10;
+		firstLight.SetPosition(glm::vec3(r * sin(deltaTime), r * cos(deltaTime), 0));
 
 		//Send ligth properties
-		glUniform3f(LPosID, firstLight.GetPosition().x + cos(deltaTime)*10, firstLight.GetPosition().y+cos(deltaTime)*10, firstLight.GetPosition().z+cos(deltaTime)*10);
+		glUniform3f(LPosID, firstLight.GetPosition().x, firstLight.GetPosition().y, firstLight.GetPosition().z);
 		glUniform3f(LColorID, firstLight.GetColor().x, firstLight.GetColor().y, firstLight.GetColor().z);
 		glUniform1f(LPowerID, firstLight.GetPower());
 
@@ -698,9 +700,9 @@ int main(void)
 
 
 
-void computeNormals(GLfloat * vertexarray, vector<glm::vec3> &normals)
+void computeNormals(GLfloat * vertexarray, vector<glm::vec3> &normals, int l)
 {
-	for (int i = 0; i < sizeof(vertexarray) ; i += 3)
+	for (int i = 0; i < l ; i += 3)
 	{
 		glm::vec3 normal(0.0);
 		glm::vec3 currentVertex(vertexarray[i],
