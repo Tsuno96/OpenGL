@@ -30,6 +30,7 @@ std::mt19937 e2(rd());
 std::uniform_real_distribution<> dist(0.0f, 1.0f);
 
 GLFWwindow* window;
+void computeNormals(GLfloat* vertexarray, vector<glm::vec3>& normals);
 
 int main(void)
 {
@@ -100,10 +101,8 @@ int main(void)
 	GLuint NormalTexture = loadBMP_custom("normal.bmp");
 #pragma region cube
 
-
-
 	// A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
-	static const GLfloat g_vertex_buffer_data[] = {
+	static GLfloat g_vertex_buffer_data[] = {
 		-1.0f,-1.0f,-1.0f, // triangle 1 : begin
 		-1.0f,-1.0f, 1.0f,
 		-1.0f, 1.0f, 1.0f, // triangle 1 : end
@@ -167,6 +166,10 @@ int main(void)
 		g_color_buffer_data[i + 8] = randomColorB;
 	}
 
+	vector<glm::vec3>normals;
+
+	computeNormals(g_vertex_buffer_data, normals);
+
 	// This will identity our vertex buffer
 	GLuint vertexBuffer;
 	// Generate 1 buffer, put the resulting identifier in vertexBuffer
@@ -225,11 +228,16 @@ int main(void)
 	glBindBuffer(GL_ARRAY_BUFFER, uvBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(g_uv_buffer_dataCube), g_uv_buffer_dataCube, GL_STATIC_DRAW);
 
+	GLuint normalBuffer;
+	glGenBuffers(1, &normalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0], GL_STATIC_DRAW);
+
 #pragma endregion
 
 #pragma region triangle
 	//TRIANGLE
-	static const GLfloat g_vertex_buffer_dataTriangle[] = {
+	static GLfloat g_vertex_buffer_dataTriangle[] = {
 		-2.0f,-2.0f,0.0f, // triangle 1 : begin
 		-2.0f,-2.0f, 2.0f,
 		-3.0f, 2.0f, 2.0f, // triangle 1 : end
@@ -246,26 +254,13 @@ int main(void)
 		float randomColorB = dist(e2);
 
 		g_color_buffer_dataTriangle[i] = randomColorR;
-		g_color_buffer_dataTriangle[i + 1] = randomColorG;
-		g_color_buffer_dataTriangle[i + 2] = randomColorB;
+		g_color_buffer_dataTriangle[i + 1] = randomColorR;
+		g_color_buffer_dataTriangle[i + 2] = randomColorR;
 	}
 
+
 	std::vector<glm::vec3> normalsTriangle;
-	for(int i = 0; i<size(g_vertex_buffer_dataTriangle);i+=3)
-	{
-		glm::vec3 normal(0.0);
-		glm::vec3 currentVertex(g_vertex_buffer_dataTriangle[i],
-								g_vertex_buffer_dataTriangle[i + 1],
-								g_vertex_buffer_dataTriangle[i + 2]);
-		int nextI = (i + 3) % 9;
-		glm::vec3 nextVertex(g_vertex_buffer_dataTriangle[nextI],
-			g_vertex_buffer_dataTriangle[nextI+1],
-			g_vertex_buffer_dataTriangle[nextI+2]);
-		normal.x += (currentVertex.y - nextVertex.y) * (currentVertex.z + nextVertex.z);
-		normal.y += (currentVertex.z - nextVertex.z) * (currentVertex.x + nextVertex.x);
-		normal.z += (currentVertex.x - nextVertex.x) * (currentVertex.y + nextVertex.y);
-		normalsTriangle.push_back(normal);
-	}
+	computeNormals(g_vertex_buffer_dataTriangle, normalsTriangle);
 
 
 	GLuint vertexBufferTriangle;
@@ -377,7 +372,7 @@ int main(void)
 	GLuint NormalTextureID = glGetUniformLocation(programID, "NormalTextureSampler");
 
 	GLuint ModelView3x3MatrixID = glGetUniformLocation(programID, "MV3x3");
-
+	
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	// Accept fragment if it closer to the camera than the former one
@@ -389,6 +384,7 @@ int main(void)
 	// Enable transparencies
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	float deltaTime = 0.0f;
 	do {
 		//Clear the screen
@@ -409,20 +405,21 @@ int main(void)
 
 		//Compute the MVP matrix from keyboard inputs
 		deltaTime += computeMatricesFromInputs(window);
+
 		// Projection matrix
 		glm::mat4 ProjectionMatrix = getProjectionMatrix();
 		// Camera matrix
 		glm::mat4 ViewMatrix = getViewMatrix();
 		// Model matrix : an identity matrix (model will be at the origin)
 		glm::mat4 ModelMatrix = glm::mat4(1.0f);
+		ModelMatrix = glm::translate(ModelMatrix, glm::vec3(0.0f,-2.0f,0.0f));
 		glm::mat4 ModelViewMatrix = ModelMatrix * ViewMatrix;
-
 		// Take the upper-left part of ModelViewMatrix
 		glm::mat3 ModelView3x3Matrix = glm::mat3(ModelViewMatrix);
 		// Our ModelViewProjection : multiplication of our 3 matrices
 		glm::mat4 mvp = ProjectionMatrix * ViewMatrix * ModelMatrix; // Remember, matrix multiplication is the other way around
 
-		// Send our transformation to the currently bound shader, in the "MVP" uniform
+			// Send our transformation to the currently bound shader, in the "MVP" uniform
 		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &mvp[0][0]);
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
@@ -439,6 +436,7 @@ int main(void)
 		glBindTexture(GL_TEXTURE_2D, NormalTexture);
 		// Set our "Normal    TextureSampler" sampler to user Texture Unit 0
 		glUniform1i(NormalTextureID, 1);
+
 #pragma region DrawCube
 		// 1rst attribute buffer : vertices
 		glEnableVertexAttribArray(0);
@@ -476,8 +474,20 @@ int main(void)
 			(void*)0                          // array buffer offset
 		);
 
+		// 3th attribute buffer : normals
+		glEnableVertexAttribArray(3);
+		glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+		glVertexAttribPointer(
+			3,                                // attribute. No particular reason for 1, but must match the layout in the shader.
+			3,                                // size
+			GL_FLOAT,                         // type
+			GL_FALSE,                         // normalized?
+			0,                                // stride
+			(void*)0                          // array buffer offset
+		);
+
 		//Draw the triangle
-		//glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
+		glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
@@ -603,7 +613,7 @@ int main(void)
 #pragma endregion
 
 		//Send Triangle opacity value
-		opacity = .8f;
+		opacity = .3ef;
 		glUniform1f(OpacityID, opacity);
 #pragma region Triangle MVP
 		//Compute the MVP matrix from keyboard inputs
@@ -683,4 +693,26 @@ int main(void)
 	glfwTerminate();
 
 	return 0;
+}
+
+
+
+
+void computeNormals(GLfloat * vertexarray, vector<glm::vec3> &normals)
+{
+	for (int i = 0; i < sizeof(vertexarray) ; i += 3)
+	{
+		glm::vec3 normal(0.0);
+		glm::vec3 currentVertex(vertexarray[i],
+			vertexarray[i + 1],
+			vertexarray[i + 2]);
+		int nextI = (i + 3) % 9;
+		glm::vec3 nextVertex(vertexarray[nextI],
+			vertexarray[nextI + 1],
+			vertexarray[nextI + 2]);
+		normal.x += (currentVertex.y - nextVertex.y) * (currentVertex.z + nextVertex.z);
+		normal.y += (currentVertex.z - nextVertex.z) * (currentVertex.x + nextVertex.x);
+		normal.z += (currentVertex.x - nextVertex.x) * (currentVertex.y + nextVertex.y);
+		normals.push_back(normal);
+	}
 }

@@ -40,7 +40,7 @@ void main(){
 
 	// Material properties
 	//vec3 MaterialDiffuseColor =  texture( myTextureSampler, UV ).rgb;
-	vec3 MaterialDiffuseColor =  fragmentColor;
+	vec3 MaterialDiffuseColor =  texture(myTextureSampler, UV).rgb + fragmentColor;
 
 	// Light properties
 	vec3 LightColor = uLightColor;
@@ -68,7 +68,7 @@ void main(){
 	//color = MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance*distance);
 	// ComputeColor
 	color.xyz =  
-	// Ambiant component
+	//Ambiant component
 	MaterialAmbientColor +
 	// Diffuse component
 	MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance * distance) +
